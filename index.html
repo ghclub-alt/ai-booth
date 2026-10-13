@@ -376,6 +376,7 @@
         <div class="btn-row center">
           <button type="button" class="btn" id="printBtn">인쇄하기</button>
           <button type="button" class="btn" id="saveBtn">저장하기</button>
+          <button type="button" class="btn" id="pauseBtn">30초 멈추기</button>
           <button type="button" class="btn go big" id="finishBtn">다음 →</button>
         </div>
 
@@ -400,13 +401,13 @@
 <div class="toast hidden" id="toast" role="status"></div>
 
 <!-- 자동 초기화 안내 -->
-<!-- 끝 화면: 30초 동안 화면 전체를 덮어 터치를 막음 (관리자 로그인 창은 이보다 뒤에 있어서 위에 뜸) -->
-<div class="modal boot lock hidden" id="endModal">
+<!-- 잠금 화면 ('30초 멈추기'·'끝'): 화면 전체를 덮어 터치를 막음 (관리자 로그인 창은 이보다 뒤에 있어서 위에 뜸) -->
+<div class="modal boot lock hidden" id="lockModal">
   <div class="modal-card center">
-    <h2>끝! 고마워요</h2>
-    <img class="end-img" id="endImg" alt="">
-    <p class="lead">잠시 멈춰요. 끝나면 사진을 지우고 처음 화면으로 돌아가요.</p>
-    <div class="countdown" id="endCount">30</div>
+    <h2 id="lockTitle"></h2>
+    <img class="end-img" id="lockImg" alt="">
+    <p class="lead" id="lockLead"></p>
+    <div class="countdown" id="lockCount"></div>
   </div>
 </div>
 
@@ -1746,29 +1747,43 @@ function wipeAll() {
   goTo('intro');
 }
 
-// 결과 화면의 '다음': 완성 그림을 보여 주며 30초 동안 멈춤(터치 막음) → 끝나면 사진을 지우고 처음 화면으로
-const END_LOCK_SEC = 30;
-let endTick = 0;
-function finish() {
-  if (isShown($('endModal'))) return;
+// 화면 전체를 덮고 sec초 동안 터치를 막은 뒤 done 실행
+const PAUSE_SEC = 30, END_SEC = 3;
+let lockTick = 0;
+function lockScreen(sec, title, lead, withImg, done) {
+  if (isShown($('lockModal'))) return;
   if (document.activeElement) document.activeElement.blur();   // 키보드 Enter로 뒤 화면 버튼이 눌리지 않게
-  clearTimeout(idleTimer);   // 멈춘 동안 자동 초기화 안내가 끼어들지 않게
+  clearTimeout(idleTimer);   // 잠긴 동안 자동 초기화 안내가 끼어들지 않게
   hideIdleModal();
-  if (state.resultUrl) $('endImg').src = state.resultUrl;
-  show($('endImg'), !!state.resultUrl);
-  let left = END_LOCK_SEC;
-  $('endCount').textContent = left;
-  show($('endModal'), true);
-  clearInterval(endTick);
-  endTick = setInterval(() => {
+  $('lockTitle').textContent = title;
+  $('lockLead').textContent = lead;
+  const img = withImg ? state.resultUrl : '';
+  if (img) $('lockImg').src = img; else $('lockImg').removeAttribute('src');
+  show($('lockImg'), !!img);
+  let left = sec;
+  $('lockCount').textContent = left;
+  show($('lockModal'), true);
+  clearInterval(lockTick);
+  lockTick = setInterval(() => {
     left--;
-    $('endCount').textContent = left;
+    $('lockCount').textContent = left;
     if (left > 0) return;
-    clearInterval(endTick);
-    $('endImg').removeAttribute('src');
-    show($('endModal'), false);
-    wipeAll();
+    clearInterval(lockTick);
+    $('lockImg').removeAttribute('src');
+    show($('lockModal'), false);
+    done();
   }, 1000);
+}
+
+// '30초 멈추기': 완성 그림을 보여 주며 30초 동안 멈춘 뒤 결과 화면으로 그대로 돌아옴
+function pauseResult() {
+  lockScreen(PAUSE_SEC, '잠시 멈춤', '30초 동안은 화면을 눌러도 반응하지 않아요.', true, bumpIdle);
+}
+
+// '다음': 사진을 바로 지우고 '끝' 화면을 3초 보여 준 뒤 시작 화면으로
+function finish() {
+  wipeAll();
+  lockScreen(END_SEC, '끝! 고마워요', '사진은 지웠어요. 곧 처음 화면으로 돌아가요.', false, () => {});
 }
 
 let idleTimer = 0, idleTick = 0, idleLeft = 0;
@@ -2004,8 +2019,9 @@ $('retryBtn').addEventListener('click', makeCharacter);
 $('redoBtn').addEventListener('click', () => goTo('prompt'));
 $('saveBtn').addEventListener('click', saveJpg);
 $('printBtn').addEventListener('click', printResult);
+$('pauseBtn').addEventListener('click', pauseResult);
 $('finishBtn').addEventListener('click', finish);
-$('endModal').addEventListener('contextmenu', (e) => e.preventDefault());
+$('lockModal').addEventListener('contextmenu', (e) => e.preventDefault());
 document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', backToShoot));
 $('makeBack').addEventListener('click', backFromMake);
 $('shootBack').addEventListener('click', backFromShoot);
