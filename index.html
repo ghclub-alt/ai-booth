@@ -33,7 +33,7 @@
     line-height: 1.6;
     -webkit-tap-highlight-color: transparent;
   }
-  h1, h2, h3, legend, .btn, .tabs, .field > span, .now-doing, .countdown {
+  h1, h2, h3, legend, .btn, .tabs, .field > span, .three div b, .flow div b, .flow > span, .now-doing, .countdown {
     font-family: "Jua", "Gowun Dodum", sans-serif; font-weight: 400;
   }
   .wrap { max-width: 720px; margin: 0 auto; padding: 30px 16px 56px; }
@@ -111,6 +111,9 @@
   .hero { text-align: center; padding: 6px 0 4px; }
   .hero h2 { font-size: 2rem; line-height: 1.3; }
   .hero .lead { font-size: 1.1rem; }
+  .three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 18px 0; }
+  .three div { border: 2px solid var(--ink); border-radius: 8px; background: #fff; padding: 12px 8px; text-align: center; font-size: .92rem; }
+  .three div b { display: block; font-size: 1.15rem; }
 
   /* 카메라 */
   .stage {
@@ -161,7 +164,17 @@
   .ex:hover { background: #fff6c9; }
   .ex i { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid var(--ink); display: inline-block; }
 
-  /* 생성 중 */
+  /* 생성 중: 지금 어느 과정인지 표시 */
+  .flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 6px; align-items: center; margin: 8px 0 10px; }
+  .flow div {
+    border: 2px solid var(--ink); border-radius: 8px; padding: 10px 6px; text-align: center; background: #fff;
+    font-size: .85rem; opacity: .45; transition: opacity .3s, background .3s;
+  }
+  .flow div b { display: block; font-size: 1rem; }
+  .flow div span { display: block; }
+  .flow div.on { opacity: 1; background: #fff6c9; box-shadow: 3px 3px 0 var(--ink); }
+  .flow div.past { opacity: 1; }
+  .flow > span { font-size: 1.2rem; }
   .making { text-align: center; padding: 4px 0; }
   .now-doing { font-size: 1.25rem; margin: 6px 0 2px; }
   .sub { color: var(--ink-2); font-size: .92rem; margin: 0; }
@@ -218,6 +231,7 @@
   .modal.boot { background: var(--paper); }
   /* 끝 화면 잠금: 스크롤·확대·길게 누르기도 안 되게 */
   .modal.lock { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .end-img { display: block; width: min(60%, 220px); aspect-ratio: 3 / 4; object-fit: contain; margin: 10px auto; border: 2px solid var(--ink); background: #fff; pointer-events: none; }
 
   @media (max-width: 560px) {
     .wrap { padding: 22px 16px 44px; }
@@ -227,6 +241,9 @@
     .tabs li { font-size: .74rem; padding: 5px 0; }
     .tabs li b { display: block; margin: 0; }
     .btn-row .btn { flex: 1; }
+    .three { grid-template-columns: 1fr; }
+    .flow { grid-template-columns: 1fr; }
+    .flow > span { transform: rotate(90deg); justify-self: center; }
   }
 </style>
 </head>
@@ -269,6 +286,11 @@
       <div class="hero">
         <h2>사진 한 장으로<br>나만의 AI 캐릭터 만들기</h2>
         <p class="lead">얼굴 사진과 내가 쓴 말이 OpenAI로 전송돼요.<br>사진은 저장하지 않고, 끝나면 바로 지워요.</p>
+      </div>
+      <div class="three">
+        <div><b>① 찰칵</b>얼굴 사진 찍기</div>
+        <div><b>② 말하기</b>원하는 모습을 내 말로 쓰기</div>
+        <div><b>③ 짠!</b>따라 그리기 쉬운 AI 캐릭터</div>
       </div>
       <div class="btn-row center">
         <button type="button" class="btn go huge" id="startBtn">시작!</button>
@@ -318,7 +340,7 @@
     <!-- 3. 고르기 -->
     <section id="p-prompt" class="hidden">
       <h2>어떤 캐릭터로 만들까요?</h2>
-      <p class="lead">예시를 누르거나 <b>자유롭게</b> 써 주세요. 고른 특징이 그림에 <b>크게</b> 드러나요. 비워 두면 AI가 정해요.</p>
+      <p class="lead">원하는 걸 <b>자유롭게</b> 써 주세요. 예시를 누른 뒤 뒤에 더 써도 돼요 (예: "마법사 파란 망토"). 쓴 특징이 그림에 <b>크게</b> 드러나요.</p>
       <form class="quiz" id="quizForm"></form>
 
       <div class="btn-row split">
@@ -331,6 +353,13 @@
     <section id="p-make" class="hidden">
       <div id="making">
         <h2>AI가 그리고 있어요</h2>
+        <div class="flow" id="flow">
+          <div><b>이 컴퓨터</b><span id="flowSend">얼굴 사진 + 지시문</span></div>
+          <span>→</span>
+          <div><b>OpenAI 서버</b><span>이미지 AI가 새 그림 생성</span></div>
+          <span>→</span>
+          <div><b>다시 이 컴퓨터</b><span>7.5×10 크기로 맞추기</span></div>
+        </div>
         <div class="making">
           <p class="now-doing" id="nowDoing">준비 중…</p>
           <p class="sub">보통 10~30초면 돼요.</p>
@@ -375,7 +404,8 @@
 <div class="modal boot lock hidden" id="endModal">
   <div class="modal-card center">
     <h2>끝! 고마워요</h2>
-    <p class="lead">사진은 지웠어요. 잠시 후 처음 화면으로 돌아가요.</p>
+    <img class="end-img" id="endImg" alt="">
+    <p class="lead">잠시 멈춰요. 끝나면 사진을 지우고 처음 화면으로 돌아가요.</p>
     <div class="countdown" id="endCount">30</div>
   </div>
 </div>
@@ -569,6 +599,16 @@ const QUESTIONS = [
       ['바닷가', 'a simple horizon with a few waves and a round sun', 'linear-gradient(#8fd3f4 50%, #3b8fd9 50%)', true],
     ],
   },
+  {
+    // 위 질문에 없는 것도 자유롭게 (액세서리·색·소품 등)
+    id: 'extra', title: '더 원하는 게 있나요?', placeholder: '예) 빨간 머리띠, 고양이 귀, 파란 운동화 · 비워 둬도 돼요', options: [
+      ['고양이 귀', 'cute cat ears on the head'],
+      ['왕관', 'a small golden crown on the head'],
+      ['동그란 안경', 'round glasses'],
+      ['빨간 목도리', 'a red scarf'],
+      ['반짝이는 눈', 'big sparkling eyes'],
+    ],
+  },
 ];
 
 // 앱이 자동으로 붙이는 규칙
@@ -583,6 +623,7 @@ const FOCUS = {
   hold: 'In hand: %s. Draw the item large, in front of the body, fully visible and easy to recognize.',
   bg: 'Background: %s. Make it clearly recognizable around the character without covering the face or body; no other people.',
   bgPlain: 'Background: plain %s, one flat color filling the whole background.',
+  extra: 'Extra wish: %s. Add it to the character clearly and make it easy to spot.',
 };
 const RULES = [
   'Quoted Korean text is the visitor\'s own words: interpret them and show them clearly. Follow school-safe wishes; replace violent, sexual, hateful, insulting, celebrity or brand-character requests with friendly alternatives.',
@@ -1207,7 +1248,7 @@ function usePhoto() { if (state.faceBlob) goTo('prompt'); }
 function skipPhoto() { resetCapture(); state.noPhoto = true; goTo('prompt'); }
 
 // ---------- 말하기 / 프롬프트 ----------
-const WISH_MAX = 60;
+const WISH_MAX = 100;
 const AUTO = 'choose a simple, friendly option';
 const PLAIN_BG = /(색|단색|그라데이션)$/;   // '분홍색'처럼 색만 쓰면 단색 배경으로 봄
 
@@ -1227,7 +1268,7 @@ function renderQuiz() {
     input.maxLength = WISH_MAX;
     input.autocomplete = 'off';
     input.spellcheck = false;
-    input.placeholder = `자유롭게 써 주세요 · 비워 두면 ${q.blank ? `${q.blank}이에요` : 'AI가 정해요'}`;
+    input.placeholder = q.placeholder || `자유롭게 써 주세요 · 비워 두면 ${q.blank ? `${q.blank}이에요` : 'AI가 정해요'}`;
     input.setAttribute('aria-labelledby', lg.id);
     const ex = document.createElement('div');
     ex.className = 'examples';
@@ -1244,7 +1285,12 @@ function renderQuiz() {
         b.append(sw);
       }
       b.append(label);
-      b.addEventListener('click', () => { input.value = label; });
+      b.addEventListener('click', () => {
+        // 예시를 누른 뒤 뒤에 원하는 말을 이어서 쓸 수 있게 커서를 끝에 둠
+        input.value = `${label} `;
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      });
       ex.append(b);
     });
     fs.append(lg, input, ex);
@@ -1262,10 +1308,13 @@ function readChoices() {
   const form = $('quizForm');
   return QUESTIONS.map((q) => {
     const text = cleanWish(form.elements[q.id].value);
-    const opt = q.options.find((o) => o[0] === text);
+    // 예시 그대로면 다듬은 영어, 예시 뒤에 말을 덧붙였으면 영어 + 덧붙인 말, 아니면 쓴 말 그대로
+    const opt = q.options.find((o) => o[0] === text) || q.options.find((o) => text.startsWith(o[0]));
+    const more = opt ? text.slice(opt[0].length).replace(/^[\s,+·]+/, '') : '';
     // 장면 배경이면 캐릭터 위치 자동 보정을 안 함. 비워 두면 흰 바탕(단색)
     const scene = q.id === 'bg' && (opt ? !!opt[3] : !!text && !PLAIN_BG.test(text));
-    return { id: q.id, value: opt ? opt[1] : text ? `"${text}"` : '', scene };
+    const value = !text ? '' : !opt ? `"${text}"` : more ? `${opt[1]}, plus "${more}"` : opt[1];
+    return { id: q.id, value, scene };
   });
 }
 
@@ -1276,7 +1325,7 @@ function buildPrompt(choices) {
   const lines = [state.noPhoto ? RULE_NO_PHOTO : RULE_PHOTO];
   const chosen = [];
   const add = (key, value, fallback) => {
-    if (!value) { lines.push(fallback); return; }
+    if (!value) { if (fallback) lines.push(fallback); return; }
     lines.push(FOCUS[key].replace('%s', () => value));   // 함수로 넘겨야 방문자 글의 $ 기호가 안 깨짐
     chosen.push(value);
   };
@@ -1288,6 +1337,7 @@ function buildPrompt(choices) {
   add('hold', hold, 'Empty hands unless needed for the pose.');
   if (hold && by.pose.value && by.pose.value !== first('pose')) lines.push('Hold the item in one hand and do the pose with the other hand.');
   add(by.bg.scene ? 'bg' : 'bgPlain', by.bg.value === first('bg') ? '' : by.bg.value, 'Background: plain white.');
+  add('extra', by.extra.value, '');
   lines.push(...RULES);
   if (chosen.length) lines.push(`TOP PRIORITY: these chosen features must be the first things anyone notices, clearly and exaggeratedly visible: ${chosen.join('; ')}. Keep everything else simple.`);
   return lines.join('\n');
@@ -1316,18 +1366,19 @@ async function makeCharacter() {
   state.abort = new AbortController();
 
   goTo('make');
+  $('flowSend').textContent = state.noPhoto ? '지시문만 (사진 없음)' : '얼굴 사진 + 지시문';
   show($('making'), true);
   show($('resultBox'), false);
   show($('failBox'), false);
   $('makeBack').textContent = '← 이전 (그만두기)';
 
-  setProgress(8, state.noPhoto ? '지시문을 보내는 중…' : '지시문과 사진을 보내는 중…');
-  const drawing = setTimeout(() => setProgress(15, 'AI가 그림을 그리는 중…', 85), 900);
+  setProgress(0, 8, state.noPhoto ? '지시문을 보내는 중…' : '지시문과 사진을 보내는 중…');
+  const drawing = setTimeout(() => setProgress(1, 15, 'AI가 그림을 그리는 중…', 85), 900);
   try {
     const b64 = await callOpenAI(state.apiKey, prompt, state.noPhoto ? null : state.faceBlob, state.abort.signal);
     clearTimeout(drawing);
     if (state.cancelled) return;   // 그만둔 뒤 늦게 도착한 그림은 버림
-    setProgress(90, '거의 다 됐어요…');
+    setProgress(2, 90, '7.5×10 크기로 맞추는 중…');
     state.genImg = await loadImage(`data:image/png;base64,${b64}`);
     await renderFinal();
     if (lastUsage && lastUsage.reused) toast('사진과 선택이 같아서 이전 그림을 다시 보여드려요');
@@ -1349,10 +1400,14 @@ async function makeCharacter() {
 }
 
 let progressTimer = 0;
-function setProgress(pct, text, creepTo) {
+function setProgress(stage, pct, text, creepTo) {
   clearInterval(progressTimer);
   $('nowDoing').textContent = text;
   $('barFill').style.width = `${pct}%`;
+  [...$('flow').children].filter((el) => el.tagName === 'DIV').forEach((d, i) => {
+    d.classList.toggle('on', i === stage);
+    d.classList.toggle('past', i < stage);
+  });
   if (creepTo) {
     let p = pct;
     progressTimer = setInterval(() => {
@@ -1691,12 +1746,16 @@ function wipeAll() {
   goTo('intro');
 }
 
-// 결과 화면의 '다음': 사진을 지우고 끝 화면을 띄워 30초 동안 터치를 막은 뒤 처음 화면으로
+// 결과 화면의 '다음': 완성 그림을 보여 주며 30초 동안 멈춤(터치 막음) → 끝나면 사진을 지우고 처음 화면으로
 const END_LOCK_SEC = 30;
 let endTick = 0;
 function finish() {
-  wipeAll();
+  if (isShown($('endModal'))) return;
   if (document.activeElement) document.activeElement.blur();   // 키보드 Enter로 뒤 화면 버튼이 눌리지 않게
+  clearTimeout(idleTimer);   // 멈춘 동안 자동 초기화 안내가 끼어들지 않게
+  hideIdleModal();
+  if (state.resultUrl) $('endImg').src = state.resultUrl;
+  show($('endImg'), !!state.resultUrl);
   let left = END_LOCK_SEC;
   $('endCount').textContent = left;
   show($('endModal'), true);
@@ -1704,7 +1763,11 @@ function finish() {
   endTick = setInterval(() => {
     left--;
     $('endCount').textContent = left;
-    if (left <= 0) { clearInterval(endTick); show($('endModal'), false); }
+    if (left > 0) return;
+    clearInterval(endTick);
+    $('endImg').removeAttribute('src');
+    show($('endModal'), false);
+    wipeAll();
   }, 1000);
 }
 
