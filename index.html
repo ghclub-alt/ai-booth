@@ -176,7 +176,7 @@
   .result-title { text-align: center; }
   .polaroid {
     width: min(100%, 360px); margin: 8px auto 6px; background: #fff; border: 2px solid var(--ink);
-    padding: 14px 14px 52px; position: relative; transform: rotate(-1.5deg); box-shadow: 6px 6px 0 rgba(29, 27, 24, .18);
+    padding: 14px 14px 52px; position: relative; box-shadow: 6px 6px 0 rgba(29, 27, 24, .18);
   }
   .polaroid .pic { aspect-ratio: 3 / 4; background: var(--soft); border: 1px solid #ddd; }
   .polaroid img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
@@ -216,6 +216,8 @@
   }
   /* 처음 시작 잠금: 비밀번호를 넣기 전에는 부스 화면이 안 보이게 */
   .modal.boot { background: var(--paper); }
+  /* 끝 화면 잠금: 스크롤·확대·길게 누르기도 안 되게 */
+  .modal.lock { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 
   @media (max-width: 560px) {
     .wrap { padding: 22px 16px 44px; }
@@ -345,7 +347,7 @@
         <div class="btn-row center">
           <button type="button" class="btn" id="printBtn">인쇄하기</button>
           <button type="button" class="btn" id="saveBtn">저장하기</button>
-          <button type="button" class="btn go big" id="finishBtn">끝내기 (내 사진 지우기)</button>
+          <button type="button" class="btn go big" id="finishBtn">다음 →</button>
         </div>
 
         <p class="again"><button type="button" class="linkish" id="redoBtn">같은 사진으로 다르게 써서 다시 만들기</button></p>
@@ -369,6 +371,15 @@
 <div class="toast hidden" id="toast" role="status"></div>
 
 <!-- 자동 초기화 안내 -->
+<!-- 끝 화면: 30초 동안 화면 전체를 덮어 터치를 막음 (관리자 로그인 창은 이보다 뒤에 있어서 위에 뜸) -->
+<div class="modal boot lock hidden" id="endModal">
+  <div class="modal-card center">
+    <h2>끝! 고마워요</h2>
+    <p class="lead">사진은 지웠어요. 잠시 후 처음 화면으로 돌아가요.</p>
+    <div class="countdown" id="endCount">30</div>
+  </div>
+</div>
+
 <div class="modal hidden" id="idleModal">
   <div class="modal-card center">
     <h2>아직 계신가요?</h2>
@@ -578,6 +589,7 @@ const RULES = [
   'Easy for a 13-year-old to copy: bold even black outlines, large rounded shapes, no tiny details.',
   'Print-friendly: flat colors (none if the style is black-and-white), high contrast; no shading, gradients, textures, blur or glow.',
   'Vertical portrait, waist-up, centered horizontally; show the hands and any held item fully.',
+  'Straight-on front view: the character stands upright and symmetric, head level and not tilted; the picture is not rotated or slanted.',
   'Leave margins above and beside the head; keep all hair, face and chin inside the frame.',
   'One character; no text, logos, watermarks, borders or frames.',
   'Use general style traits; never imitate a specific living artist.',
@@ -1679,6 +1691,23 @@ function wipeAll() {
   goTo('intro');
 }
 
+// 결과 화면의 '다음': 사진을 지우고 끝 화면을 띄워 30초 동안 터치를 막은 뒤 처음 화면으로
+const END_LOCK_SEC = 30;
+let endTick = 0;
+function finish() {
+  wipeAll();
+  if (document.activeElement) document.activeElement.blur();   // 키보드 Enter로 뒤 화면 버튼이 눌리지 않게
+  let left = END_LOCK_SEC;
+  $('endCount').textContent = left;
+  show($('endModal'), true);
+  clearInterval(endTick);
+  endTick = setInterval(() => {
+    left--;
+    $('endCount').textContent = left;
+    if (left <= 0) { clearInterval(endTick); show($('endModal'), false); }
+  }, 1000);
+}
+
 let idleTimer = 0, idleTick = 0, idleLeft = 0;
 function bumpIdle() {
   clearTimeout(idleTimer);
@@ -1912,7 +1941,8 @@ $('retryBtn').addEventListener('click', makeCharacter);
 $('redoBtn').addEventListener('click', () => goTo('prompt'));
 $('saveBtn').addEventListener('click', saveJpg);
 $('printBtn').addEventListener('click', printResult);
-$('finishBtn').addEventListener('click', wipeAll);
+$('finishBtn').addEventListener('click', finish);
+$('endModal').addEventListener('contextmenu', (e) => e.preventDefault());
 document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', backToShoot));
 $('makeBack').addEventListener('click', backFromMake);
 $('shootBack').addEventListener('click', backFromShoot);
