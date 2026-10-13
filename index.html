@@ -551,11 +551,17 @@ const QUESTIONS = [
   {
     // 인쇄해서 따라 그리기 쉬운 단순한 그림체만
     id: 'look',title: '어떤 그림체가 좋아요?', options: [
-      ['단순한 만화', 'a simple flat cartoon with bold black outlines and only a few flat colors'],
-      ['색칠공부 선화', 'a black-and-white coloring-book line drawing: bold black outlines only, white inside, no color or gray'],
-      ['귀여운 2등신', 'a cute chibi cartoon with a big head and a small body, bold outlines, very simple shapes'],
-      ['스티커 그림', 'a simple sticker-style cartoon with thick outlines and flat colors'],
-      ['펜 낙서', 'a friendly notebook doodle drawn with a black felt-tip pen, bold simple lines'],
+      // 그림체마다 겉모습이 확 달라지도록 재료·선·색·명암을 구체적으로 적음
+      ['단순한 만화', 'a simple flat cartoon: bold black outlines, a few flat colors, no shading'],
+      ['색칠공부 선화', 'a black-and-white coloring-book page: clean bold black outlines on pure white, absolutely no color, no gray, no shading'],
+      ['귀여운 2등신', 'a super-deformed chibi: huge head about half of the body height, tiny body and limbs, big shiny eyes, soft pastel colors'],
+      ['3D 애니메이션', 'a 3D animated movie character render: soft rounded 3D shapes, smooth glossy materials, soft studio lighting and shadows, depth'],
+      ['수채화 동화책', 'a watercolor storybook illustration: visible watercolor washes and blooms, soft bleeding edges, light pencil lines, textured paper'],
+      ['픽셀 게임', 'retro 16-bit video game pixel art: chunky clearly visible square pixels, limited color palette, no smooth curves'],
+      ['클레이 인형', 'a handmade clay figure (claymation): soft plasticine material with tiny fingerprints, rounded sculpted shapes, soft 3D lighting'],
+      ['크레파스 그림', 'a child\'s crayon drawing: thick waxy crayon strokes, uneven scribbly coloring, wobbly hand-drawn lines on white paper'],
+      ['웹툰', 'a Korean webtoon illustration: clean thin digital lineart, cel shading, bright vivid colors, shiny anime-style eyes'],
+      ['팝아트', 'bold pop-art comic style: thick black outlines, halftone dot shading, bright primary colors, high contrast'],
     ],
   },
   {
@@ -625,11 +631,11 @@ const QUESTIONS = [
 ];
 
 // 앱이 자동으로 붙이는 규칙
-const RULE_PHOTO = 'Draw one friendly cartoon character resembling the person in the reference photo: keep face shape, hairstyle, eyes, skin tone and glasses.';
-const RULE_NO_PHOTO = 'Draw one original friendly cartoon character, not a real person.';
+const RULE_PHOTO = 'Draw one friendly character resembling the person in the reference photo: keep face shape, hairstyle, eyes, skin tone and glasses. Completely redraw the photo in the art style below; the result must not look like a photo.';
+const RULE_NO_PHOTO = 'Draw one original friendly character, not a real person.';
 // 방문자가 고른 특징은 그림에서 크게·뚜렷하게 보이도록 특징마다 강조 문장을 붙임 (%s = 고른 내용)
 const FOCUS = {
-  look: 'Art style: %s. Apply this style strongly and consistently to the whole picture.',
+  look: 'Art style: %s. This art style is the most important instruction and overrides every other drawing rule: render the entire image (character, outfit, background) fully in this style, with its typical materials, lines, colors, shading and textures, so the style is obvious at first glance.',
   mood: 'Facial expression: %s. Exaggerate it so it reads at a glance: big expressive eyes, eyebrows and mouth.',
   outfit: 'Outfit: %s. Make it bold and unmistakable, with its signature items drawn large and clear.',
   pose: 'Pose: %s. Make the gesture big and clear, with the arms and hands fully inside the frame.',
@@ -640,13 +646,17 @@ const FOCUS = {
 };
 const RULES = [
   'Quoted Korean text is the visitor\'s own words: interpret them and show them clearly. Follow school-safe wishes; replace violent, sexual, hateful, insulting, celebrity or brand-character requests with friendly alternatives.',
-  'Easy for a 13-year-old to copy: bold even black outlines, large rounded shapes, no tiny details.',
-  'Print-friendly: flat colors (none if the style is black-and-white), high contrast; no shading, gradients, textures, blur or glow.',
   'Vertical portrait, waist-up, centered horizontally; show the hands and any held item fully.',
   'Straight-on front view: the character stands upright and symmetric, head level and not tilted; the picture is not rotated or slanted.',
   'Leave margins above and beside the head; keep all hair, face and chin inside the frame.',
   'One character; no text, logos, watermarks, borders or frames.',
   'Use general style traits; never imitate a specific living artist.',
+];
+// 그림체를 비워 뒀을 때만 붙이는 기본 그림 규칙 (따라 그리기·인쇄하기 쉬운 단순한 그림).
+// 그림체를 고르면 빼서, 고른 그림체가 이 규칙에 눌려 비슷비슷해지지 않게 함
+const SIMPLE_RULES = [
+  'Easy for a 13-year-old to copy: bold even black outlines, large rounded shapes, no tiny details.',
+  'Print-friendly: flat colors, high contrast; no shading, gradients, textures, blur or glow.',
 ];
 
 // ---------- 상태 ----------
@@ -1352,7 +1362,8 @@ function buildPrompt(choices) {
   add(by.bg.scene ? 'bg' : 'bgPlain', by.bg.value === first('bg') ? '' : by.bg.value, 'Background: plain white.');
   add('extra', by.extra.value, '');
   lines.push(...RULES);
-  if (chosen.length) lines.push(`TOP PRIORITY: these chosen features must be the first things anyone notices, clearly and exaggeratedly visible: ${chosen.join('; ')}. Keep everything else simple.`);
+  if (!by.look.value) lines.push(...SIMPLE_RULES);
+  if (chosen.length) lines.push(`TOP PRIORITY: these chosen features must be the first things anyone notices, clearly and exaggeratedly visible: ${chosen.join('; ')}. Keep unrelated small details simple.`);
   return lines.join('\n');
 }
 
