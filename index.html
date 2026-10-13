@@ -231,7 +231,16 @@
   .modal.boot { background: var(--paper); }
   /* 끝 화면 잠금: 스크롤·확대·길게 누르기도 안 되게 */
   .modal.lock { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-  .end-img { display: block; width: min(60%, 220px); aspect-ratio: 3 / 4; object-fit: contain; margin: 10px auto; border: 2px solid var(--ink); background: #fff; pointer-events: none; }
+  .pause-lock {
+    position: fixed; inset: 0; z-index: 50; background: transparent;
+    touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  }
+  .pause-badge {
+    position: absolute; left: 50%; top: calc(16px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
+    background: var(--ink); color: #fff; padding: 8px 18px; border-radius: 999px; white-space: nowrap;
+    font-family: "Jua", "Gowun Dodum", sans-serif; font-size: 1.1rem; box-shadow: 3px 3px 0 rgba(0, 0, 0, .2);
+  }
+  .pause-badge b { font-weight: 400; }
 
   @media (max-width: 560px) {
     .wrap { padding: 22px 16px 44px; }
@@ -402,13 +411,15 @@
 <div class="toast hidden" id="toast" role="status"></div>
 
 <!-- 자동 초기화 안내 -->
-<!-- 잠금 화면 ('30초 멈추기'·'끝'): 화면 전체를 덮어 터치를 막음 (관리자 로그인 창은 이보다 뒤에 있어서 위에 뜸) -->
-<div class="modal boot lock hidden" id="lockModal">
+<!-- 30초 멈추기: 화면은 그대로 두고 투명한 막으로 터치만 막음 (관리자 로그인 창은 이보다 뒤에 있어서 위에 뜸) -->
+<div class="pause-lock hidden" id="pauseLock"><span class="pause-badge">잠시 멈춤 · <b id="pauseCount"></b>초</span></div>
+
+<!-- 끝 화면: 화면 전체를 덮어 터치를 막음 -->
+<div class="modal boot lock hidden" id="endModal">
   <div class="modal-card center">
-    <h2 id="lockTitle"></h2>
-    <img class="end-img" id="lockImg" alt="">
-    <p class="lead" id="lockLead"></p>
-    <div class="countdown" id="lockCount"></div>
+    <h2>끝! 고마워요</h2>
+    <p class="lead">사진은 지웠어요. 곧 처음 화면으로 돌아가요.</p>
+    <div class="countdown" id="endCount"></div>
   </div>
 </div>
 
@@ -1748,43 +1759,35 @@ function wipeAll() {
   goTo('intro');
 }
 
-// 화면 전체를 덮고 sec초 동안 터치를 막은 뒤 done 실행
+// 막(el)을 띄워 sec초 동안 터치를 막고, 남은 초를 countEl에 표시한 뒤 done 실행
 const PAUSE_SEC = 30, END_SEC = 3;
 let lockTick = 0;
-function lockScreen(sec, title, lead, withImg, done) {
-  if (isShown($('lockModal'))) return;
+function lockFor(el, countEl, sec, done) {
+  if (isShown($('pauseLock')) || isShown($('endModal'))) return;
   if (document.activeElement) document.activeElement.blur();   // 키보드 Enter로 뒤 화면 버튼이 눌리지 않게
   clearTimeout(idleTimer);   // 잠긴 동안 자동 초기화 안내가 끼어들지 않게
   hideIdleModal();
-  $('lockTitle').textContent = title;
-  $('lockLead').textContent = lead;
-  const img = withImg ? state.resultUrl : '';
-  if (img) $('lockImg').src = img; else $('lockImg').removeAttribute('src');
-  show($('lockImg'), !!img);
   let left = sec;
-  $('lockCount').textContent = left;
-  show($('lockModal'), true);
+  countEl.textContent = left;
+  show(el, true);
   clearInterval(lockTick);
   lockTick = setInterval(() => {
     left--;
-    $('lockCount').textContent = left;
+    countEl.textContent = left;
     if (left > 0) return;
     clearInterval(lockTick);
-    $('lockImg').removeAttribute('src');
-    show($('lockModal'), false);
+    show(el, false);
     done();
   }, 1000);
 }
 
-// '30초 멈추기': 완성 그림을 보여 주며 30초 동안 멈춘 뒤 결과 화면으로 그대로 돌아옴
-function pauseResult() {
-  lockScreen(PAUSE_SEC, '잠시 멈춤', '30초 동안은 화면을 눌러도 반응하지 않아요.', true, bumpIdle);
-}
+// '30초 멈추기': 결과 화면을 원래 크기 그대로 둔 채 30초 동안 터치만 막음
+function pauseResult() { lockFor($('pauseLock'), $('pauseCount'), PAUSE_SEC, bumpIdle); }
 
 // '다음': 사진을 바로 지우고 '끝' 화면을 3초 보여 준 뒤 시작 화면으로
 function finish() {
   wipeAll();
-  lockScreen(END_SEC, '끝! 고마워요', '사진은 지웠어요. 곧 처음 화면으로 돌아가요.', false, () => {});
+  lockFor($('endModal'), $('endCount'), END_SEC, () => {});
 }
 
 let idleTimer = 0, idleTick = 0, idleLeft = 0;
@@ -2027,7 +2030,7 @@ $('saveBtn').addEventListener('click', saveJpg);
 $('printBtn').addEventListener('click', printResult);
 $('pauseBtn').addEventListener('click', pauseResult);
 $('finishBtn').addEventListener('click', finish);
-$('lockModal').addEventListener('contextmenu', (e) => e.preventDefault());
+['pauseLock', 'endModal'].forEach((id) => $(id).addEventListener('contextmenu', (e) => e.preventDefault()));
 document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', backToShoot));
 $('makeBack').addEventListener('click', backFromMake);
 $('shootBack').addEventListener('click', backFromShoot);
