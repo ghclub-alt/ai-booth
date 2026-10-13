@@ -261,7 +261,8 @@
   - 이 페이지는 브라우저에서 OpenAI API를 직접 부른다. 입력한 키는 개발자 도구(Network 탭)에서 보일 수 있으니
     부스 PC는 스태프가 지키고, 행사가 끝나면 관리자 설정의 'API 키 삭제'를 누르자.
   - API 키는 쿠키(ai_booth_openai_key)에 저장된다. 새로고침해도 남고, 쿠키를 지우면 사라진다.
-    페이지를 열 때마다(새로고침 포함) '부스 시작하기' 창이 떠서 관리자 비밀번호를 넣어야 시작된다 (취소 불가).
+    페이지를 처음 열면 '부스 시작하기' 창이 떠서 관리자 비밀번호를 넣어야 시작된다 (취소 불가).
+    한 번 넣으면 같은 탭에서는 새로고침해도 다시 묻지 않는다. 탭이나 브라우저를 닫았다 열면 다시 물어본다.
     키가 없으면 비밀번호를 넣은 뒤 관리자 설정이 바로 열린다.
   - 그림은 7.5×10cm(750×1000px). 인쇄 용지는 관리자 설정에서 고른다 (일반 용지면 자르는 선이 같이 나옴).
     프린터 창의 배율은 '기본값(100%)'으로 둬야 실제 크기로 나온다.
@@ -1810,7 +1811,11 @@ function hideIdleModal() {
 }
 
 // ---------- 관리자 로그인 ----------
-// 페이지를 열 때마다(새로고침 포함) 관리자 비밀번호를 넣어야 부스가 시작됨. 그 전에는 취소할 수 없음
+// 처음 열 때 관리자 비밀번호를 넣어야 부스가 시작됨. 그 전에는 취소할 수 없음.
+// 한 번 맞히면 이 탭의 sessionStorage에 기억해서 새로고침해도 바로 들어감 (탭·브라우저를 닫으면 다시 물어봄)
+const UNLOCK_KEY = 'ai-booth.unlocked';
+function wasUnlocked() { try { return sessionStorage.getItem(UNLOCK_KEY) === '1'; } catch (_) { return false; } }
+function rememberUnlock() { try { sessionStorage.setItem(UNLOCK_KEY, '1'); } catch (_) { /* 기억 못 해도 진행 */ } }
 let bootLocked = true;
 
 function openLogin(msg) {
@@ -1839,6 +1844,7 @@ async function submitLogin(e) {
   }
   if (bootLocked) {
     bootLocked = false;
+    rememberUnlock();
     $('loginModal').classList.remove('boot');
     closeLogin();
     if (!state.apiKey) openStaff();   // 키가 없으면 바로 관리자 설정으로
@@ -2058,9 +2064,10 @@ MODELS.forEach((m, i) => $('staffModel').append(new Option(`${m}만${i === 0 ? '
 renderQuiz();
 initFaceEngine();
 goTo('intro');
-// 키가 없으면 스태프가 바로 넣을 수 있게 로그인 창부터 (방문자는 비밀번호를 모르니 '취소')
-// 처음 시작할 때 항상 관리자 비밀번호부터 (방문자는 비밀번호를 모르니 부스를 쓸 수 없음)
-openLogin(state.apiKey ? '' : '관리자 비밀번호를 넣으면 관리자 설정이 열려요. 거기서 API 키를 넣어 주세요.');
+// 이 탭에서 이미 비밀번호를 맞혔고 API 키도 있으면 새로고침해도 바로 시작.
+// 아니면 관리자 비밀번호부터 (방문자는 비밀번호를 모르니 부스를 쓸 수 없음. 키가 없으면 비밀번호 뒤 관리자 설정이 열림)
+if (wasUnlocked() && state.apiKey) bootLocked = false;
+else openLogin(state.apiKey ? '' : '관리자 비밀번호를 넣으면 관리자 설정이 열려요. 거기서 API 키를 넣어 주세요.');
 </script>
 </body>
 </html>
