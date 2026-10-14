@@ -631,7 +631,7 @@ const QUESTIONS = [
 ];
 
 // 앱이 자동으로 붙이는 규칙
-const RULE_PHOTO = 'Draw one friendly character resembling the person in the reference photo: keep face shape, hairstyle, eyes, skin tone and glasses. Completely redraw the photo in the art style below; the result must not look like a photo.';
+const RULE_PHOTO = 'Draw one friendly character resembling the person in the reference photo: keep face shape, hairstyle, eyes and skin tone. Eyewear must match the photo: draw glasses only if the person is clearly wearing glasses in the photo; if they are not, the character has bare eyes with no glasses, goggles or sunglasses (unless the extra wish below asks for them). Completely redraw the photo in the art style below; the result must not look like a photo.';
 const RULE_NO_PHOTO = 'Draw one original friendly character, not a real person.';
 // 방문자가 고른 특징은 그림에서 크게·뚜렷하게 보이도록 특징마다 강조 문장을 붙임 (%s = 고른 내용)
 const FOCUS = {
