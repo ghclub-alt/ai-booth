@@ -386,7 +386,7 @@
         <div class="btn-row center">
           <button type="button" class="btn" id="printBtn">인쇄하기</button>
           <button type="button" class="btn" id="saveBtn">저장하기</button>
-          <button type="button" class="btn" id="pauseBtn">30초 화면고정</button>
+          <button type="button" class="btn" id="pauseBtn">2분 화면고정</button>
           <button type="button" class="btn go big" id="finishBtn">다음 →</button>
         </div>
 
@@ -1771,7 +1771,7 @@ function wipeAll() {
 }
 
 // 막(el)을 띄워 sec초 동안 터치를 막고, 남은 초를 countEl에 표시한 뒤 done 실행
-const PAUSE_SEC = 30, END_SEC = 3;
+const PAUSE_SEC = 120, END_SEC = 3;
 let lockTick = 0;
 function lockFor(el, countEl, sec, done) {
   if (isShown($('pauseLock')) || isShown($('endModal'))) return;
