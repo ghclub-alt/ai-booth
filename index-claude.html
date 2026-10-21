@@ -709,6 +709,7 @@ const state = {
   faceBlob: null, faceUrl: '',     // 얼굴 사진은 메모리에만
   sceneBg: false,
   genImg: null, resultBlob: null, resultUrl: '',
+  savedBlob: null,   // '저장하기'로 이미 저장한 그림 ('다음'에서 두 번 저장하지 않게)
   apiKey: '',
   busy: false, abort: null, cancelled: false,
   loopGen: 0, loopId: 0, detecting: false,
@@ -1825,6 +1826,7 @@ function saveJpg() {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 3000);
+  state.savedBlob = state.resultBlob;
 }
 
 // 7.5×10cm 실제 크기로 인쇄 (프린터 창의 배율은 '기본값(100%)'으로).
@@ -1860,6 +1862,7 @@ function wipeAll() {
   resetCapture();
   state.genImg = null;
   state.resultBlob = null;
+  state.savedBlob = null;
   if (state.resultUrl) URL.revokeObjectURL(state.resultUrl);
   state.resultUrl = '';
   $('resultImg').removeAttribute('src');
@@ -1895,6 +1898,12 @@ function lockFor(el, countEl, sec, done) {
 
 // '30초 멈추기': 결과 화면을 원래 크기 그대로 둔 채 30초 동안 터치만 막음
 function pauseResult() { lockFor($('pauseLock'), $('pauseCount'), PAUSE_SEC, bumpIdle); }
+
+// '다음' 버튼: 아직 저장하지 않은 그림은 저장하고 끝내기
+function saveAndFinish() {
+  if (state.resultBlob && state.savedBlob !== state.resultBlob) saveJpg();
+  finish();
+}
 
 // '다음': 사진을 바로 지우고 '끝' 화면을 3초 보여 준 뒤 시작 화면으로
 function finish() {
@@ -2182,7 +2191,7 @@ $('redoBtn').addEventListener('click', () => goTo('prompt'));
 $('saveBtn').addEventListener('click', saveJpg);
 $('printBtn').addEventListener('click', printResult);
 $('pauseBtn').addEventListener('click', pauseResult);
-$('finishBtn').addEventListener('click', finish);
+$('finishBtn').addEventListener('click', saveAndFinish);
 $('failFinishBtn').addEventListener('click', finish);
 ['pauseLock', 'endModal', 'resultImg'].forEach((id) => $(id).addEventListener('contextmenu', (e) => e.preventDefault()));
 document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', backToShoot));
