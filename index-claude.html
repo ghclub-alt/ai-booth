@@ -224,6 +224,25 @@
   .staff-row.gap { margin-top: 8px; }
   .staff-status { font-size: .92rem; color: var(--ink-2); }
 
+  /* 첫 화면 만든 사람 */
+  .credit { text-align: center; margin: 18px 0 0; font-family: "Gaegu", cursive; font-size: 1.15rem; color: var(--ink-2); }
+
+  /* 마지막 설문 */
+  .survey-q { margin-top: 14px; }
+  .survey-q > b { display: block; margin-bottom: 8px; font-family: "Jua", "Gowun Dodum", sans-serif; font-weight: 400; font-size: 1.08rem; }
+  .survey-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .survey-opt {
+    font: inherit; font-size: 1rem; padding: 8px 13px; border: 2px solid var(--ink); border-radius: 999px;
+    background: #fff; color: var(--ink); cursor: pointer; touch-action: manipulation;
+  }
+  .survey-opt[aria-pressed="true"] { background: var(--yellow); box-shadow: 2px 2px 0 var(--ink); }
+  /* 관리자 설정의 설문 결과 */
+  .stat-q { margin: 12px 0 4px; font-size: .95rem; }
+  .stat-row { display: grid; grid-template-columns: minmax(0, 11em) 1fr auto; gap: 8px; align-items: center; font-size: .88rem; margin: 3px 0; }
+  .stat-bar { height: 10px; background: var(--soft); border-radius: 5px; overflow: hidden; }
+  .stat-bar i { display: block; height: 100%; background: var(--teal); }
+  .survey-comments { margin: 6px 0 0; padding-left: 18px; font-size: .88rem; }
+
   /* 인쇄용 숨은 iframe */
   /* 인쇄: 안드로이드 크롬은 iframe만 따로 인쇄를 못 해서, 인쇄할 때만 그림 영역 하나만 보이게 함 */
   #printArea { display: none; }
@@ -309,6 +328,7 @@ Claude 개선판 (index-secure.html 기반):
         <div class="btn-row center">
         <button type="button" class="btn go huge" id="startBtn" disabled>시작!</button>
       </div>
+      <p class="credit">고헌중학교 1학년 학생이 만들었습니다</p>
     </section>
 
     <!-- 2. 찰칵 -->
@@ -428,6 +448,21 @@ Claude 개선판 (index-secure.html 기반):
   </div>
 </div>
 
+<!-- 마지막 설문: '다음'을 누르면 사진을 지운 뒤 보여 줌 -->
+<div class="modal boot hidden" id="surveyModal">
+  <form class="modal-card" id="surveyForm" autocomplete="off">
+    <h2>마지막으로, 짧은 설문!</h2>
+    <p class="lead">이름 없이 이 기기에만 모아요. 건너뛰어도 괜찮아요.</p>
+    <div id="surveyQs"></div>
+    <label class="field gap"><span>한 줄 소감 (안 써도 돼요)</span><input type="text" id="surveyComment" maxlength="60" placeholder="예) 내 캐릭터가 너무 귀여워요!" spellcheck="false"></label>
+    <p class="fine">이름·전화번호 같은 개인정보는 쓰지 말아 주세요.</p>
+    <div class="btn-row split">
+      <button type="button" class="btn" id="surveySkip">건너뛰기</button>
+      <button type="submit" class="btn go big" id="surveySubmit" disabled>제출하기</button>
+    </div>
+  </form>
+</div>
+
 <div class="modal hidden" id="idleModal">
   <div class="modal-card center">
     <h2>아직 계신가요?</h2>
@@ -544,6 +579,21 @@ Claude 개선판 (index-secure.html 기반):
     </div>
     <p class="fine" id="staffAwake"></p>
 
+    <h3>설문 결과</h3>
+    <label class="field">
+      <span>'다음'을 누르면 설문 보여 주기</span>
+      <select id="staffSurvey">
+        <option value="1">켜기</option>
+        <option value="0">끄기</option>
+      </select>
+    </label>
+    <div id="surveyStats" aria-live="polite"></div>
+    <div class="btn-row">
+      <button type="button" class="btn" id="staffSurveyCsv">CSV로 내려받기</button>
+      <button type="button" class="btn" id="staffSurveyClear">설문 결과 지우기</button>
+    </div>
+    <p class="fine">설문 결과는 이 태블릿의 브라우저에만 저장돼요. 태블릿이 여러 대면 각각 CSV로 내려받아 합쳐 주세요. 브라우저의 사이트 데이터를 지우면 함께 지워져요.</p>
+
     <h3>관리자 비밀번호</h3>
     <label class="field"><span>새 비밀번호 (10자 이상)</span><input type="password" id="staffPw1" name="booth-new-pw" autocomplete="new-password" spellcheck="false" data-lpignore="true" data-1p-ignore></label>
     <label class="field gap"><span>새 비밀번호 한 번 더</span><input type="password" id="staffPw2" name="booth-new-pw2" autocomplete="new-password" spellcheck="false" data-lpignore="true" data-1p-ignore></label>
@@ -574,7 +624,7 @@ const FACE_PX = 512;                 // 보내는 얼굴 사진 크기 (작을�
 const TIMEOUT_MS = 240000;
 const OUT_W = 750, OUT_H = 1000;
 const PRINT_DPI = 254;   // 10px/mm → 750×1000px = 7.5×10cm
-const STORE = { key: 'ai-booth.openai-key', settings: 'ai-booth.settings', count: 'ai-booth.count', adminPw: 'ai-booth.admin-pw', loginFail: 'ai-booth.login-fail' };
+const STORE = { key: 'ai-booth.openai-key', settings: 'ai-booth.settings', count: 'ai-booth.count', adminPw: 'ai-booth.admin-pw', loginFail: 'ai-booth.login-fail', survey: 'ai-booth.survey' };
 const SETTINGS_V = 4; // 태블릿 개선판
 const IDLE_WARN_SEC = 10;
 const STAFF_IDLE_MS = 120000;   // 관리자 설정을 연 채 이만큼 손대지 않으면 자동으로 닫음
@@ -716,7 +766,7 @@ const state = {
   visitorGens: 0,   // 이번 방문자가 새로 만든 그림 수 (재사용한 그림은 안 셈)
 };
 const engine = { type: null, native: null, mp: null, ts: 0, ready: null, failed: false };
-let settings = { v: SETTINGS_V, idle: 90, caption: '코딩동아리 AI 부스', quality: 'low', paper: 'plain', model: 'auto', perVisitor: 3, totalLimit: 0 };
+let settings = { v: SETTINGS_V, idle: 90, caption: '코딩동아리 AI 부스', quality: 'low', paper: 'plain', model: 'auto', perVisitor: 3, totalLimit: 0, survey: 1 };
 let lastModel = '';   // 마지막 성공 모델부터 시도 (키를 바꾸면 초기화)
 let generationCache = null;   // 이번 방문자의 마지막 성공 결과 1장만 메모리에 보관
 let generationSession = 0;    // 초기화 전에 보낸 요청이 나중에 캐시를 채우지 못하게 함
@@ -741,6 +791,7 @@ function loadSettings() {
     if (!MODELS.includes(settings.model)) settings.model = 'auto';
     if (!PER_VISITOR_OPTIONS.includes(settings.perVisitor)) settings.perVisitor = 3;
     if (!TOTAL_LIMIT_OPTIONS.includes(settings.totalLimit)) settings.totalLimit = 0;
+    if (![0, 1].includes(settings.survey)) settings.survey = 1;
     saveSettings();   // 새 버전을 저장해 이후 관리자가 선택한 품질은 유지
   } catch (_) { /* 기본값 */ }
 }
@@ -1902,13 +1953,184 @@ function pauseResult() { lockFor($('pauseLock'), $('pauseCount'), PAUSE_SEC, bum
 // '다음' 버튼: 아직 저장하지 않은 그림은 저장하고 끝내기
 function saveAndFinish() {
   if (state.resultBlob && state.savedBlob !== state.resultBlob) saveJpg();
-  finish();
+  if (!settings.survey) { finish(); return; }
+  wipeAll();   // 설문 전에 사진·그림부터 지움
+  openSurvey();
 }
 
 // '다음': 사진을 바로 지우고 '끝' 화면을 3초 보여 준 뒤 시작 화면으로
 function finish() {
   wipeAll();
   lockFor($('endModal'), $('endCount'), END_SEC, () => {});
+}
+
+// ---------- 마지막 설문 ----------
+// 답은 이름 없이 이 기기의 localStorage에만 쌓이고, 관리자 설정에서 모아 봄
+const SURVEY = [
+  { id: 'fun', title: 'AI 캐릭터 만들기, 재미있었나요?', options: [['😆', '아주 재미있어요'], ['🙂', '재미있어요'], ['😐', '보통이에요'], ['🙁', '별로예요']] },
+  { id: 'like', title: '내 캐릭터가 마음에 드나요?', options: [['😍', '아주 마음에 들어요'], ['🙂', '마음에 들어요'], ['😐', '그저 그래요'], ['🙁', '아쉬워요']] },
+  { id: 'learn', title: 'AI가 그림을 만드는 과정을 알게 됐나요?', options: [['💡', '잘 알게 됐어요'], ['🤔', '조금 알게 됐어요'], ['❓', '잘 모르겠어요']] },
+];
+const SURVEY_MAX = 3000;          // 이보다 많으면 오래된 답부터 버림 (저장 공간 보호)
+const SURVEY_IDLE_MS = 40000;     // 설문 중 이만큼 손대지 않으면 저장 없이 넘어감
+let surveyAnswers = {};
+let surveyTimer = 0;
+
+function renderSurvey() {
+  SURVEY.forEach((q) => {
+    const box = document.createElement('div');
+    box.className = 'survey-q';
+    const title = document.createElement('b');
+    title.id = `sv-${q.id}`;
+    title.textContent = q.title;
+    const opts = document.createElement('div');
+    opts.className = 'survey-opts';
+    opts.setAttribute('role', 'group');
+    opts.setAttribute('aria-labelledby', title.id);
+    q.options.forEach(([emoji, label], i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'survey-opt';
+      b.dataset.q = q.id;
+      b.setAttribute('aria-pressed', 'false');
+      b.textContent = `${emoji} ${label}`;
+      b.addEventListener('click', () => {
+        surveyAnswers[q.id] = i;
+        opts.querySelectorAll('.survey-opt').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+        syncSurveySubmit();
+      });
+      opts.append(b);
+    });
+    box.append(title, opts);
+    $('surveyQs').append(box);
+  });
+}
+function surveyComment() { return cleanWish($('surveyComment').value).slice(0, 60); }
+function syncSurveySubmit() { $('surveySubmit').disabled = !Object.keys(surveyAnswers).length && !surveyComment(); }
+
+function openSurvey() {
+  surveyAnswers = {};
+  document.querySelectorAll('.survey-opt').forEach((o) => o.setAttribute('aria-pressed', 'false'));
+  $('surveyComment').value = '';
+  syncSurveySubmit();
+  if (document.activeElement) document.activeElement.blur();
+  show($('surveyModal'), true);
+  bumpSurveyIdle();
+}
+function bumpSurveyIdle() {
+  clearTimeout(surveyTimer);
+  if (isShown($('surveyModal'))) surveyTimer = setTimeout(() => closeSurvey(false), SURVEY_IDLE_MS);
+}
+function closeSurvey(save) {
+  clearTimeout(surveyTimer);
+  if (!isShown($('surveyModal'))) return;
+  if (save) addSurveyEntry({ t: Date.now(), a: { ...surveyAnswers }, c: surveyComment() });
+  surveyAnswers = {};
+  $('surveyComment').value = '';
+  show($('surveyModal'), false);
+  lockFor($('endModal'), $('endCount'), END_SEC, () => {});
+}
+
+function loadSurvey() {
+  try {
+    const list = JSON.parse(storeGet(STORE.survey) || '[]');
+    return Array.isArray(list) ? list.filter((e) => e && typeof e === 'object') : [];
+  } catch (_) { return []; }
+}
+function addSurveyEntry(entry) {
+  const list = loadSurvey();
+  list.push(entry);
+  storeSet(STORE.survey, JSON.stringify(list.slice(-SURVEY_MAX)));
+}
+// 저장된 답이 범위를 벗어나면 (옛 버전 등) 빈칸으로
+function surveyPick(entry, q) {
+  const i = entry.a && entry.a[q.id];
+  return Number.isInteger(i) && q.options[i] ? i : -1;
+}
+function fmtTime(t) {
+  const d = new Date(t);
+  const p = (x) => String(x).padStart(2, '0');
+  return Number.isFinite(d.getTime()) ? `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}` : '';
+}
+
+// 관리자 설정: 질문별 개수·비율 막대와 최근 소감
+function renderSurveyStats() {
+  const box = $('surveyStats');
+  const list = loadSurvey();
+  box.textContent = '';
+  const head = document.createElement('p');
+  head.className = 'staff-status';
+  head.textContent = list.length ? `응답 ${list.length}개 · 마지막 ${fmtTime(list[list.length - 1].t)}` : '아직 설문 응답이 없어요.';
+  box.append(head);
+  $('staffSurveyCsv').disabled = $('staffSurveyClear').disabled = !list.length;
+  if (!list.length) return;
+  SURVEY.forEach((q) => {
+    const counts = q.options.map(() => 0);
+    list.forEach((e) => { const i = surveyPick(e, q); if (i >= 0) counts[i]++; });
+    const answered = counts.reduce((a, b) => a + b, 0);
+    const title = document.createElement('p');
+    title.className = 'stat-q';
+    title.textContent = `${q.title} (${answered}명 응답)`;
+    box.append(title);
+    q.options.forEach(([emoji, label], i) => {
+      const pct = answered ? Math.round((counts[i] / answered) * 100) : 0;
+      const row = document.createElement('div');
+      row.className = 'stat-row';
+      const name = document.createElement('span');
+      name.textContent = `${emoji} ${label}`;
+      const bar = document.createElement('span');
+      bar.className = 'stat-bar';
+      const fill = document.createElement('i');
+      fill.style.width = `${pct}%`;
+      bar.append(fill);
+      const num = document.createElement('span');
+      num.textContent = `${counts[i]} (${pct}%)`;
+      row.append(name, bar, num);
+      box.append(row);
+    });
+  });
+  const comments = list.filter((e) => e.c).slice(-10).reverse();
+  if (comments.length) {
+    const title = document.createElement('p');
+    title.className = 'stat-q';
+    title.textContent = '최근 한 줄 소감 (최대 10개, 전체는 CSV에서)';
+    const ul = document.createElement('ul');
+    ul.className = 'survey-comments';
+    comments.forEach((e) => {
+      const li = document.createElement('li');
+      li.textContent = `${String(e.c)} · ${fmtTime(e.t)}`;   // 방문자 글은 textContent로만 넣음
+      ul.append(li);
+    });
+    box.append(title, ul);
+  }
+}
+
+// 엑셀에서 한글이 안 깨지게 BOM을 붙이고, =·+·-·@로 시작하는 글은 수식으로 실행되지 않게 앞에 '를 붙임
+function downloadSurveyCsv() {
+  const list = loadSurvey();
+  if (!list.length) return;
+  const cell = (v) => {
+    let t = String(v == null ? '' : v);
+    if (/^[=+\-@\t\r]/.test(t)) t = `'${t}`;
+    return `"${t.replace(/"/g, '""')}"`;
+  };
+  const rows = [['시각', ...SURVEY.map((q) => q.title), '한 줄 소감']];
+  list.forEach((e) => rows.push([fmtTime(e.t), ...SURVEY.map((q) => { const i = surveyPick(e, q); return i >= 0 ? q.options[i][1] : ''; }), e.c || '']));
+  const blob = new Blob(['\uFEFF' + rows.map((r) => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `survey-${stamp()}.csv`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+}
+function clearSurvey() {
+  if (!confirm('설문 결과를 모두 지울까요?\n지운 결과는 되돌릴 수 없어요. 필요하면 먼저 CSV로 내려받아 주세요.')) return;
+  storeDel(STORE.survey);
+  renderSurveyStats();
+  toast('설문 결과를 지웠어요');
 }
 
 let idleTimer = 0, idleTick = 0, idleLeft = 0;
@@ -2000,6 +2222,8 @@ function openStaff() {
   $('staffQuality').value = settings.quality;
   $('staffPaper').value = settings.paper;
   $('staffPerVisitor').value = String(settings.perVisitor);
+  $('staffSurvey').value = String(settings.survey);
+  renderSurveyStats();
   $('staffTotalLimit').value = String(settings.totalLimit);
   show($('pwWarn'), false);
   refreshStaffStatus();
@@ -2044,6 +2268,7 @@ function closeStaff() {
   settings.quality = $('staffQuality').value;
   settings.paper = $('staffPaper').value;
   settings.perVisitor = Number($('staffPerVisitor').value);
+  settings.survey = Number($('staffSurvey').value);
   settings.totalLimit = Number($('staffTotalLimit').value);
   saveSettings();
   clearTimeout(staffIdleTimer);
@@ -2202,7 +2427,13 @@ $('idleStay').addEventListener('click', bumpIdle);
 ['pointerdown', 'keydown', 'input'].forEach((ev) => document.addEventListener(ev, () => {
   if (!isShown($('idleModal'))) bumpIdle();
   bumpStaffIdle();
+  bumpSurveyIdle();
 }, { passive: true }));
+$('surveyForm').addEventListener('submit', (e) => { e.preventDefault(); closeSurvey(true); });
+$('surveySkip').addEventListener('click', () => closeSurvey(false));
+$('surveyComment').addEventListener('input', syncSurveySubmit);
+$('staffSurveyCsv').addEventListener('click', downloadSurveyCsv);
+$('staffSurveyClear').addEventListener('click', clearSurvey);
 
 $('staffTrigger').addEventListener('click', staffTap);
 $('staffTrigger').addEventListener('pointerdown', staffHoldDown);
@@ -2240,6 +2471,7 @@ loadSettings();
 state.apiKey = loadSavedKey(); // 이전 버전에서 브라우저에 저장한 API 키 폐기
 MODELS.forEach((m, i) => $('staffModel').append(new Option(`${m}만${i === 0 ? ' (가장 빠름)' : ''}`, m)));
 renderQuiz();
+renderSurvey();
 initFaceEngine();
 goTo('intro');
 // 이 탭에서 이미 비밀번호를 맞혔고 API 키도 있으면 새로고침해도 바로 시작.
