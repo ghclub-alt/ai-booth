@@ -255,10 +255,16 @@
   .modal.boot { background: var(--paper); }
   /* 끝 화면 잠금: 스크롤·확대·길게 누르기도 안 되게 */
   .modal.lock { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  /* 화면고정: 그림만 화면 한가운데에 크게 띄움 (위쪽 남은 초 표시와 같은 만큼 아래도 비워서 정확히 가운데) */
   .pause-lock {
-    position: fixed; inset: 0; z-index: 50; background: transparent;
+    position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 72px 16px;
+    background-color: var(--paper);
+    background-image: radial-gradient(var(--dot) 1.2px, transparent 1.2px);
+    background-size: 18px 18px;
     touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
   }
+  .pause-lock .polaroid { width: min(100%, 520px, calc((100vh - 144px - 70px) * .75)); width: min(100%, 520px, calc((100dvh - 144px - 70px) * .75)); margin: 0; }
+  .pause-lock img { -webkit-touch-callout: none; }
   .pause-badge {
     position: absolute; left: 50%; top: calc(16px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
     background: var(--ink); color: #fff; padding: 8px 18px; border-radius: 999px; white-space: nowrap;
@@ -436,8 +442,14 @@ Claude 개선판 (index-secure.html 기반):
 <div class="toast hidden" id="toast" role="status"></div>
 
 <!-- 자동 초기화 안내 -->
-<!-- 30초 멈추기: 화면은 그대로 두고 투명한 막으로 터치만 막음 (관리자 로그인 창은 이보다 뒤에 있어서 위에 뜸) -->
-<div class="pause-lock hidden" id="pauseLock"><span class="pause-badge">잠시 멈춤 · <b id="pauseCount"></b>초</span></div>
+<!-- 2분 화면고정: 그림만 화면 한가운데에 띄우고 터치를 막음 (관리자 로그인 창은 이보다 뒤에 있어서 위에 뜸) -->
+<div class="pause-lock hidden" id="pauseLock">
+  <span class="pause-badge">잠시 멈춤 · <b id="pauseCount"></b>초</span>
+  <div class="polaroid">
+    <div class="pic"><img id="pauseImg" alt="AI가 만든 캐릭터"></div>
+    <div class="cap" id="pauseCap"></div>
+  </div>
+</div>
 
 <!-- 끝 화면: 화면 전체를 덮어 터치를 막음 -->
 <div class="modal boot lock hidden" id="endModal">
@@ -1957,8 +1969,16 @@ function lockFor(el, countEl, sec, done) {
   }, 1000);
 }
 
-// '30초 멈추기': 결과 화면을 원래 크기 그대로 둔 채 30초 동안 터치만 막음
-function pauseResult() { lockFor($('pauseLock'), $('pauseCount'), PAUSE_SEC, bumpIdle); }
+// '2분 화면고정': 결과 그림만 화면 한가운데에 띄워 두고 2분 동안 터치를 막음
+function pauseResult() {
+  if (isShown($('pauseLock')) || isShown($('endModal'))) return;
+  $('pauseImg').src = $('resultImg').src;
+  $('pauseCap').textContent = $('caption').textContent;
+  lockFor($('pauseLock'), $('pauseCount'), PAUSE_SEC, () => {
+    $('pauseImg').removeAttribute('src');
+    bumpIdle();
+  });
+}
 
 // '다음' 버튼: 아직 저장하지 않은 그림은 저장하고 끝내기
 function saveAndFinish() {
