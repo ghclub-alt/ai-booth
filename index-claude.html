@@ -265,6 +265,10 @@
   }
   .pause-lock .polaroid { width: min(100%, 520px, calc((100vh - 144px - 70px) * .75)); width: min(100%, 520px, calc((100dvh - 144px - 70px) * .75)); margin: 0; }
   .pause-lock img { -webkit-touch-callout: none; }
+  /* 고정 풀기: 막 위에서 유일하게 눌리는 버튼. 위쪽 남은 초 표시와 맞춰 아래 가운데에 둠 */
+  .unpause { position: absolute; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); white-space: nowrap; }
+  .unpause:hover:not(:disabled) { transform: translate(calc(-50% - 1px), -1px); }
+  .unpause:active:not(:disabled) { transform: translate(calc(-50% + 3px), 3px); }
   .pause-badge {
     position: absolute; left: 50%; top: calc(16px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
     background: var(--ink); color: #fff; padding: 8px 18px; border-radius: 999px; white-space: nowrap;
@@ -449,6 +453,7 @@ Claude 개선판 (index-secure.html 기반):
     <div class="pic"><img id="pauseImg" alt="AI가 만든 캐릭터"></div>
     <div class="cap" id="pauseCap"></div>
   </div>
+  <button type="button" class="btn unpause" id="unpauseBtn">고정 풀기</button>
 </div>
 
 <!-- 끝 화면: 화면 전체를 덮어 터치를 막음 -->
@@ -1974,10 +1979,18 @@ function pauseResult() {
   if (isShown($('pauseLock')) || isShown($('endModal'))) return;
   $('pauseImg').src = $('resultImg').src;
   $('pauseCap').textContent = $('caption').textContent;
-  lockFor($('pauseLock'), $('pauseCount'), PAUSE_SEC, () => {
-    $('pauseImg').removeAttribute('src');
-    bumpIdle();
-  });
+  lockFor($('pauseLock'), $('pauseCount'), PAUSE_SEC, endPause);
+}
+function endPause() {
+  $('pauseImg').removeAttribute('src');
+  bumpIdle();
+}
+// '고정 풀기': 2분을 기다리지 않고 바로 결과 화면으로 돌아감
+function unpause() {
+  if (!isShown($('pauseLock'))) return;
+  clearInterval(lockTick);
+  show($('pauseLock'), false);
+  endPause();
 }
 
 // '다음' 버튼: 아직 저장하지 않은 그림은 저장하고 끝내기
@@ -2446,6 +2459,7 @@ $('redoBtn').addEventListener('click', () => goTo('prompt'));
 $('saveBtn').addEventListener('click', saveJpg);
 $('printBtn').addEventListener('click', printResult);
 $('pauseBtn').addEventListener('click', pauseResult);
+$('unpauseBtn').addEventListener('click', unpause);
 $('finishBtn').addEventListener('click', saveAndFinish);
 $('failFinishBtn').addEventListener('click', finish);
 ['pauseLock', 'endModal', 'resultImg'].forEach((id) => $(id).addEventListener('contextmenu', (e) => e.preventDefault()));
