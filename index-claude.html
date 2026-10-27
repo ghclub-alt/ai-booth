@@ -265,6 +265,12 @@
     font-family: "Jua", "Gowun Dodum", sans-serif; font-size: 1.1rem; box-shadow: 3px 3px 0 rgba(0, 0, 0, .2);
   }
   .pause-badge b { font-weight: 400; }
+  .pause-unlock {
+    position: absolute; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+    white-space: nowrap;
+  }
+  .pause-unlock:hover:not(:disabled) { transform: translate(calc(-50% - 1px), -1px); }
+  .pause-unlock:active:not(:disabled) { transform: translate(calc(-50% + 3px), 3px); }
 
   @media (max-width: 560px) {
     .wrap { padding: 22px 16px 44px; }
@@ -436,8 +442,11 @@ Claude 개선판 (index-secure.html 기반):
 <div class="toast hidden" id="toast" role="status"></div>
 
 <!-- 자동 초기화 안내 -->
-<!-- 30초 멈추기: 화면은 그대로 두고 투명한 막으로 터치만 막음 (관리자 로그인 창은 이보다 뒤에 있어서 위에 뜸) -->
-<div class="pause-lock hidden" id="pauseLock"><span class="pause-badge">잠시 멈춤 · <b id="pauseCount"></b>초</span></div>
+<!-- 2분 화면고정: 화면은 그대로 두고 투명한 막으로 터치를 막음. 막 위의 '2분 고정 해제' 버튼만 눌림 -->
+<div class="pause-lock hidden" id="pauseLock">
+  <span class="pause-badge">잠시 멈춤 · <b id="pauseCount"></b>초</span>
+  <button type="button" class="btn go big pause-unlock" id="unpauseBtn">2분 고정 해제</button>
+</div>
 
 <!-- 끝 화면: 화면 전체를 덮어 터치를 막음 -->
 <div class="modal boot lock hidden" id="endModal">
@@ -1957,8 +1966,25 @@ function lockFor(el, countEl, sec, done) {
   }, 1000);
 }
 
-// '30초 멈추기': 결과 화면을 원래 크기 그대로 둔 채 30초 동안 터치만 막음
-function pauseResult() { lockFor($('pauseLock'), $('pauseCount'), PAUSE_SEC, bumpIdle); }
+// '2분 화면고정': 결과 화면을 원래 크기 그대로 둔 채 2분 동안 터치를 막음.
+// 고정 중에는 '2분 고정 해제' 버튼만 눌리고, 키보드로도 뒤 화면에 닿지 않게 inert로 막음
+function pauseResult() {
+  lockFor($('pauseLock'), $('pauseCount'), PAUSE_SEC, endPause);
+  if (!isShown($('pauseLock'))) return;
+  document.querySelector('.wrap').inert = true;
+  $('unpauseBtn').focus();
+}
+function endPause() {
+  document.querySelector('.wrap').inert = false;
+  bumpIdle();
+}
+// '2분 고정 해제': 2분이 다 지나기 전에 바로 풂
+function unpauseResult() {
+  if (!isShown($('pauseLock'))) return;
+  clearInterval(lockTick);
+  show($('pauseLock'), false);
+  endPause();
+}
 
 // '다음' 버튼: 아직 저장하지 않은 그림은 저장하고 끝내기
 function saveAndFinish() {
@@ -2426,6 +2452,7 @@ $('redoBtn').addEventListener('click', () => goTo('prompt'));
 $('saveBtn').addEventListener('click', saveJpg);
 $('printBtn').addEventListener('click', printResult);
 $('pauseBtn').addEventListener('click', pauseResult);
+$('unpauseBtn').addEventListener('click', unpauseResult);
 $('finishBtn').addEventListener('click', saveAndFinish);
 $('failFinishBtn').addEventListener('click', finish);
 ['pauseLock', 'endModal', 'resultImg'].forEach((id) => $(id).addEventListener('contextmenu', (e) => e.preventDefault()));
@@ -2435,7 +2462,7 @@ $('shootBack').addEventListener('click', backFromShoot);
 
 $('idleStay').addEventListener('click', bumpIdle);
 ['pointerdown', 'keydown', 'input'].forEach((ev) => document.addEventListener(ev, () => {
-  if (!isShown($('idleModal'))) bumpIdle();
+  if (!isShown($('idleModal')) && !isShown($('pauseLock'))) bumpIdle();   // 고정 중엔 자동 초기화 안내가 끼어들지 않게
   bumpStaffIdle();
   bumpSurveyIdle();
 }, { passive: true }));
@@ -2461,7 +2488,7 @@ $('staffSavePw').addEventListener('click', staffSavePw);
 $('staffResetCount').addEventListener('click', () => { storeSet(STORE.count, '0'); refreshStaffStatus(); });
 $('staffFullscreen').addEventListener('click', toggleFullscreen);
 document.addEventListener('keydown', (e) => {
-  if (e.ctrlKey && e.shiftKey && (e.key === 'S' || e.key === 's')) { e.preventDefault(); openLogin(); }
+  if (e.ctrlKey && e.shiftKey && (e.key === 'S' || e.key === 's')) { e.preventDefault(); if (!isShown($('pauseLock'))) openLogin(); }
   if (e.key === 'Escape' && isShown($('loginModal'))) closeLogin();
   else if (e.key === 'Escape' && isShown($('staffModal'))) closeStaff();
 });
